@@ -1,0 +1,30 @@
+include "AR71XX_BASE"
+ident "RB433"
+hints "RB433.hints"
+
+nodevice mx25l
+nooptions INVARIANTS
+nooptions INVARIANT_SUPPORT
+nooptions WITNESS
+nooptions WITNESS_SKIPSPIN
+nooptions DEBUG_REDZONE
+nooptions DEBUG_MEMGUARD
+
+options MSDOSFS
+options AR71XX_ENV_ROUTERBOOT
+options ARGE_MDIO
+
+device miiproxy
+device etherswitch
+device ip17x
+
+options NFSCL
+options NFS_ROOT
+options BOOTP
+options BOOTP_NFSROOT
+options BOOTP_NFSV3
+options BOOTP_WIRED_TO=arge1
+options BOOTP_COMPAT
+options ROOTDEVNAME=\"nfs:192.168.6.1:/home/test/RB433AH/nfsroot\"
+
+
