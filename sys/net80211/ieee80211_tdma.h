@@ -23,7 +23,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $FreeBSD$
+ * $FreeBSD: head/sys/net80211/ieee80211_tdma.h 192468 2009-05-20 20:00:40Z sam $
  */
 #ifndef _NET80211_IEEE80211_TDMA_H_
 #define _NET80211_IEEE80211_TDMA_H_
@@ -37,7 +37,7 @@
 #define	TDMA_VERSION		TDMA_VERSION_V2
 
 /* NB: we only support 2 right now but protocol handles up to 8 */
-#define	TDMA_MAXSLOTS		2	/* max slots/sta's */
+#define	TDMA_MAXSLOTS		8		/* max slots/sta's */
 
 #define	TDMA_PARAM_LEN_V2	sizeof(struct ieee80211_tdma_param)
 
@@ -81,11 +81,10 @@ struct ieee80211_tdma_state {
 	int	(*tdma_newstate)(struct ieee80211vap *, enum ieee80211_state,
 		    int arg);
 	void	(*tdma_recv_mgmt)(struct ieee80211_node *,
-		    struct mbuf *, int,
-		    const struct ieee80211_rx_stats *rxs, int, int);
+		    struct mbuf *, int, const struct ieee80211_rx_stats *rxs, int, int);
 	void	(*tdma_opdetach)(struct ieee80211vap *);
 };
- 
+
 #define	TDMA_UPDATE_SLOT	0x0001	/* tdma_slot changed */
 #define	TDMA_UPDATE_SLOTCNT	0x0002	/* tdma_slotcnt changed */
 #define	TDMA_UPDATE_SLOTLEN	0x0004	/* tdma_slotlen changed */

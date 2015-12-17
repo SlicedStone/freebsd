@@ -26,7 +26,7 @@
 
 #include <sys/cdefs.h>
 #ifdef __FreeBSD__
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: head/sys/net80211/ieee80211_tdma.c 254506 2013-08-18 23:40:30Z adrian $");
 #endif
 
 /*
@@ -39,8 +39,8 @@ __FBSDID("$FreeBSD$");
 #ifdef	IEEE80211_SUPPORT_TDMA
 
 #include <sys/param.h>
-#include <sys/systm.h> 
-#include <sys/mbuf.h>   
+#include <sys/systm.h>
+#include <sys/mbuf.h>
 #include <sys/malloc.h>
 #include <sys/kernel.h>
 
@@ -66,7 +66,7 @@ __FBSDID("$FreeBSD$");
 #define	TDMA_SLOTLEN_DEFAULT	10*1000		/* 10ms */
 #endif
 #ifndef TDMA_SLOTCNT_DEFAULT
-#define	TDMA_SLOTCNT_DEFAULT	2		/* 2x (pt-to-pt) */
+#define	TDMA_SLOTCNT_DEFAULT	8	/* 2x (pt-to-pt) */
 #endif
 #ifndef TDMA_BINTVAL_DEFAULT
 #define	TDMA_BINTVAL_DEFAULT	5		/* 5x ~= 100TU beacon intvl */
@@ -109,7 +109,7 @@ __FBSDID("$FreeBSD$");
 /*
  * This code is not prepared to handle more than 2 slots.
  */
-CTASSERT(TDMA_MAXSLOTS == 2);
+CTASSERT(TDMA_MAXSLOTS == 8);
 
 static void tdma_vdetach(struct ieee80211vap *vap);
 static int tdma_newstate(struct ieee80211vap *, enum ieee80211_state, int);
@@ -149,9 +149,8 @@ ieee80211_tdma_vattach(struct ieee80211vap *vap)
 	KASSERT(vap->iv_caps & IEEE80211_C_TDMA,
 	     ("not a tdma vap, caps 0x%x", vap->iv_caps));
 
-	ts = (struct ieee80211_tdma_state *) IEEE80211_MALLOC(
-	     sizeof(struct ieee80211_tdma_state), M_80211_VAP,
-	     IEEE80211_M_NOWAIT | IEEE80211_M_ZERO);
+	ts = (struct ieee80211_tdma_state *) malloc(
+	     sizeof(struct ieee80211_tdma_state), M_80211_VAP, M_NOWAIT | M_ZERO);
 	if (ts == NULL) {
 		printf("%s: cannot allocate TDMA state block\n", __func__);
 		/* NB: fall back to adhdemo mode */
@@ -200,7 +199,7 @@ tdma_vdetach(struct ieee80211vap *vap)
 		return;
 	}
 	ts->tdma_opdetach(vap);
-	IEEE80211_FREE(vap->iv_tdma, M_80211_VAP);
+	free(vap->iv_tdma, M_80211_VAP);
 	vap->iv_tdma = NULL;
 
 	setackpolicy(vap->iv_ic, 0);	/* enable ACK's */
@@ -262,7 +261,7 @@ tdma_newstate(struct ieee80211vap *vap, enum ieee80211_state nstate, int arg)
 	} else {
 		status = ts->tdma_newstate(vap, nstate, arg);
 	}
-	if (status == 0 && 
+	if (status == 0 &&
 	    nstate == IEEE80211_S_RUN && ostate != IEEE80211_S_RUN &&
 	    (vap->iv_flags_ext & IEEE80211_FEXT_SWBMISS) &&
 	    ts->tdma_slot != 0 &&
@@ -332,7 +331,6 @@ tdma_recv_mgmt(struct ieee80211_node *ni, struct mbuf *m0,
 		struct ieee80211_frame *wh = mtod(m0, struct ieee80211_frame *);
 		struct ieee80211_scanparams scan;
 
-		/* XXX TODO: use rxstatus to determine off-channel beacons */
 		if (ieee80211_parse_beacon(ni, m0, ic->ic_curchan, &scan) != 0)
 			return;
 		if (scan.tdma == NULL) {
@@ -520,7 +518,7 @@ tdma_process_params(struct ieee80211_node *ni, const u_int8_t *ie,
 {
 	struct ieee80211vap *vap = ni->ni_vap;
 	struct ieee80211_tdma_state *ts = vap->iv_tdma;
-	const struct ieee80211_tdma_param *tdma = 
+	const struct ieee80211_tdma_param *tdma =
 		(const struct ieee80211_tdma_param *) ie;
 	u_int len = ie[1];
 
@@ -698,7 +696,7 @@ ieee80211_add_tdma(uint8_t *frm, struct ieee80211vap *vap)
 	*frm++ = ts->tdma_bintval;
 	*frm++ = ts->tdma_inuse[0];
 	frm += 10;				/* pad+timestamp */
-	return frm; 
+	return frm;
 #undef ADDSHORT
 }
 #undef TDMA_OUI_BYTES
