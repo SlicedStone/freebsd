@@ -44,12 +44,20 @@
  * to be authorized.  The latter timeout is shorter to more aggressively
  * reclaim nodes that leave part way through the 802.1x exchange.
  */
+// To adapt to the changing environment for testing, shrink these macros for inactivity to smaller values!!!
 #define	IEEE80211_INACT_WAIT	15		/* inactivity interval (secs) */
+//#define	IEEE80211_INACT_INIT	(30/IEEE80211_INACT_WAIT)	/* initial */
+//#define	IEEE80211_INACT_AUTH	(180/IEEE80211_INACT_WAIT)	/* associated but not authorized */
+//#define	IEEE80211_INACT_RUN	(300/IEEE80211_INACT_WAIT)	/* authorized */
+//#define	IEEE80211_INACT_PROBE	(30/IEEE80211_INACT_WAIT)	/* probe */
+//#define	IEEE80211_INACT_SCAN	(300/IEEE80211_INACT_WAIT)	/* scanned */
 #define	IEEE80211_INACT_INIT	(30/IEEE80211_INACT_WAIT)	/* initial */
-#define	IEEE80211_INACT_AUTH	(180/IEEE80211_INACT_WAIT)	/* associated but not authorized */
-#define	IEEE80211_INACT_RUN	(300/IEEE80211_INACT_WAIT)	/* authorized */
-#define	IEEE80211_INACT_PROBE	(30/IEEE80211_INACT_WAIT)	/* probe */
-#define	IEEE80211_INACT_SCAN	(300/IEEE80211_INACT_WAIT)	/* scanned */
+#define	IEEE80211_INACT_AUTH	(60/IEEE80211_INACT_WAIT)	/* associated but not authorized */
+#define	IEEE80211_INACT_RUN 	(60/IEEE80211_INACT_WAIT)	/* authorized */
+#define	IEEE80211_INACT_PROBE	(60/IEEE80211_INACT_WAIT)	/* probe */
+#define	IEEE80211_INACT_SCAN	(60/IEEE80211_INACT_WAIT)	/* scanned */
+
+
 
 #define	IEEE80211_TRANS_WAIT 	2		/* mgt frame tx timer (secs) */
 
