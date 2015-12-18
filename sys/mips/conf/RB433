@@ -18,6 +18,10 @@ device miiproxy
 device etherswitch
 device ip17x
 
+# Debugging support.  Always need this:
+options 	KDB			# Enable kernel debugger support.
+options 	KDB_TRACE		# Print a stack trace for a panic.
+
 options NFSCL
 options NFS_ROOT
 options BOOTP
