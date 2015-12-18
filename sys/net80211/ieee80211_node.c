@@ -30,13 +30,13 @@ __FBSDID("$FreeBSD$");
 #include "opt_wlan.h"
 
 #include <sys/param.h>
-#include <sys/systm.h> 
-#include <sys/mbuf.h>   
+#include <sys/systm.h>
+#include <sys/mbuf.h>
 #include <sys/malloc.h>
 #include <sys/kernel.h>
 
 #include <sys/socket.h>
- 
+
 #include <net/if.h>
 #include <net/if_var.h>
 #include <net/if_media.h>
@@ -205,7 +205,7 @@ ieee80211_node_vdetach(struct ieee80211vap *vap)
 	}
 }
 
-/* 
+/*
  * Port authorize/unauthorize interfaces for use by an authenticator.
  */
 
@@ -375,7 +375,7 @@ ieee80211_create_ibss(struct ieee80211vap* vap, struct ieee80211_channel *chan)
 		memcpy(ni->ni_meshid, vap->iv_mesh->ms_id, ni->ni_meshidlen);
 #endif
 	}
-	/* 
+	/*
 	 * Fix the channel and related attributes.
 	 */
 	/* clear DFS CAC state on previous channel */
@@ -555,7 +555,7 @@ check_bss_debug(struct ieee80211vap *vap, struct ieee80211_node *ni)
 	printf("%s\n", fail & 0x10 ? "!" : "");
 }
 #endif /* IEEE80211_DEBUG */
- 
+
 /*
  * Handle 802.11 ad hoc network merge.  The
  * convention, set by the Wireless Ethernet Compatibility Alliance
@@ -746,7 +746,7 @@ ieee80211_sta_join1(struct ieee80211_node *selbs)
 	 * Set the erp state (mostly the slot time) to deal with
 	 * the auto-select case; this should be redundant if the
 	 * mode is locked.
-	 */ 
+	 */
 	ieee80211_reset_erp(ic);
 	ieee80211_wme_initparams(vap);
 
@@ -1454,7 +1454,7 @@ ieee80211_fakeup_adhoc_node(struct ieee80211vap *vap,
 			/*
 			 * In adhoc demo mode there are no management
 			 * frames to use to discover neighbor capabilities,
-			 * so blindly propagate the local configuration 
+			 * so blindly propagate the local configuration
 			 * so we can do interesting things (e.g. use
 			 * WME to disable ACK's).
 			 */
@@ -2058,9 +2058,9 @@ restart:
 		 * of time and regardless reclaiming our state is wrong.
 		 * XXX run ic_node_age
 		 */
-		if (ni == vap->iv_bss)
-			continue;
-		if (ni->ni_associd != 0 || 
+//		if (ni == vap->iv_bss)
+//			continue;
+		if (ni->ni_associd != 0 ||
 		    (vap->iv_opmode == IEEE80211_M_IBSS ||
 		     vap->iv_opmode == IEEE80211_M_AHDEMO)) {
 			/*
