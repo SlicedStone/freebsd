@@ -89,6 +89,19 @@ struct	ether_arp {
 #define	arp_pln	ea_hdr.ar_pln
 #define	arp_op	ea_hdr.ar_op
 
+struct aodv_msghdr {
+    u_char  msg_type;
+    u_char  msg_flags;
+    u_char  msg_reserved;
+    u_char  msg_hopcnt;
+};
+
+#define  AODV_RREQ  1
+#define  AODV_RREP  2
+#define  AODV_RRER  3
+
+
+
 #ifndef BURN_BRIDGES	/* Can be used by third party software. */
 struct sockaddr_inarp {
 	u_char	sin_len;
@@ -120,6 +133,8 @@ void	arprequest(struct ifnet *, const struct in_addr *,
 	    const struct in_addr *, u_char *);
 void	arp_ifinit(struct ifnet *, struct ifaddr *);
 void	arp_ifinit2(struct ifnet *, struct ifaddr *, u_char *);
+
+struct mbuf *aodv_message(struct ifnet *ifnet, u_char type, const struct in_addr *dst);
 #endif
 
 #endif

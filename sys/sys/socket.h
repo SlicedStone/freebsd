@@ -71,13 +71,13 @@ typedef	__sa_family_t	sa_family_t;
 typedef	__socklen_t	socklen_t;
 #define	_SOCKLEN_T_DECLARED
 #endif
- 
+
 #ifndef _SSIZE_T_DECLARED
 typedef	__ssize_t	ssize_t;
 #define	_SSIZE_T_DECLARED
 #endif
 
-#if __BSD_VISIBLE 
+#if __BSD_VISIBLE
 #ifndef _UID_T_DECLARED
 typedef	__uid_t		uid_t;
 #define	_UID_T_DECLARED
@@ -243,6 +243,9 @@ struct accept_filter_arg {
 #define	AF_INET_SDP	40		/* OFED Socket Direct Protocol ipv4 */
 #define	AF_INET6_SDP	42		/* OFED Socket Direct Protocol ipv6 */
 #define	AF_MAX		42
+
+#define AF_AODV     50
+
 /*
  * When allocating a new AF_ constant, please only allocate
  * even numbered constants for FreeBSD until 134 as odd numbered AF_

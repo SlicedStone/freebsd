@@ -116,6 +116,7 @@ struct ether_vlan_header {
 #define	ETHERTYPE_NSCOMPAT	0x0807	/* XNS Compatibility */
 #define	ETHERTYPE_FRARP 	0x0808	/* Frame Relay ARP (RFC1701) */
 			     /* 0x081C	   Symbolics Private */
+#define ETHERTYPE_AODV  0x0809  /* AODV ether_type */
 		    /* 0x0888 - 0x088A	   Xyplex */
 #define	ETHERTYPE_UBDEBUG	0x0900	/* Ungermann-Bass network debugger */
 #define	ETHERTYPE_IEEEPUP	0x0A00	/* Xerox IEEE802.3 PUP */
@@ -123,6 +124,7 @@ struct ether_vlan_header {
 #define	ETHERTYPE_VINES 	0x0BAD	/* Banyan VINES */
 #define	ETHERTYPE_VINESLOOP	0x0BAE	/* Banyan VINES Loopback */
 #define	ETHERTYPE_VINESECHO	0x0BAF	/* Banyan VINES Echo */
+
 
 /*		       0x1000 - 0x100F	   Berkeley Trailer */
 /*

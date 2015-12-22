@@ -345,6 +345,8 @@ if_simloop(struct ifnet *ifp, struct mbuf *m, int af, int hlen)
 	case AF_INET:
 		isr = NETISR_IP;
 		break;
+    case AF_AODV:
+        break;
 #endif
 #ifdef INET6
 	case AF_INET6:

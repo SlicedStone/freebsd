@@ -97,13 +97,13 @@ void	(*ng_ether_detach_p)(struct ifnet *ifp);
 void	(*vlan_input_p)(struct ifnet *, struct mbuf *);
 
 /* if_bridge(4) support */
-struct mbuf *(*bridge_input_p)(struct ifnet *, struct mbuf *); 
-int	(*bridge_output_p)(struct ifnet *, struct mbuf *, 
+struct mbuf *(*bridge_input_p)(struct ifnet *, struct mbuf *);
+int	(*bridge_output_p)(struct ifnet *, struct mbuf *,
 		struct sockaddr *, struct rtentry *);
 void	(*bridge_dn_p)(struct mbuf *, struct ifnet *);
 
 /* if_lagg(4) support */
-struct mbuf *(*lagg_input_p)(struct ifnet *, struct mbuf *); 
+struct mbuf *(*lagg_input_p)(struct ifnet *, struct mbuf *);
 
 static const u_char etherbroadcastaddr[ETHER_ADDR_LEN] =
 			{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
@@ -186,10 +186,24 @@ ether_output(struct ifnet *ifp, struct mbuf *m,
 	case AF_INET:
 		if (lle != NULL && (pflags & LLE_VALID) != 0)
 			memcpy(edst, &lle->ll_addr.mac16, sizeof(edst));
-		else
+        else {
+      //      printf("%s:try to resolve ip:%x\n",__func__, (( const struct sockaddr_in *)(dst))->sin_addr.s_addr);
 			error = arpresolve(ifp, is_gw, m, dst, edst, &pflags);
-		if (error)
+        }
+
+        if (error){
 			return (error == EWOULDBLOCK ? 0 : error);
+            // m_free(m);   //abandon the packet
+          //  error1 = error;
+          //  printf("%s:arp resolve failed, entering the route request\n",__func__);
+          //  m_freem(m);
+         //   if((m=aodv_message(ifp, AODV_RREQ, dst)) == NULL)
+         //       senderr(ENOBUFS);
+          //  printf("%s:out of aodv route request function\n",__func__);
+          //  type = htons(ETHERTYPE_AODV);
+          //  bcopy(ifp->if_broadcastaddr, edst, ETHER_ADDR_LEN);
+         //   break;
+         }
 		type = htons(ETHERTYPE_IP);
 		break;
 	case AF_ARP:
@@ -219,6 +233,10 @@ ether_output(struct ifnet *ifp, struct mbuf *m,
 
 	}
 	break;
+    case AF_AODV:
+        type = htons(ETHERTYPE_AODV);
+        bcopy(ifp->if_broadcastaddr, edst, ETHER_ADDR_LEN);
+    break;
 #endif
 #ifdef INET6
 	case AF_INET6:
@@ -268,6 +286,7 @@ ether_output(struct ifnet *ifp, struct mbuf *m,
 		memcpy(&eh->ether_type, &type, sizeof(eh->ether_type));
 		memcpy(eh->ether_dhost, edst, sizeof (edst));
 		memcpy(eh->ether_shost, IF_LLADDR(ifp),sizeof(eh->ether_shost));
+       // printf("ether_output:type %x message to mac: %x:%x:%x:%x:%x:%x\n", type, edst[0],edst[1],edst[2],edst[3],edst[4],edst[5]);//hh (const char *)(IF_LLADDR(ifp)));
 	}
 
 	/*
@@ -337,7 +356,13 @@ bad:			if (m != NULL)
 	}
 
 	/* Continue with link-layer output */
-	return ether_output_frame(ifp, m);
+   // if(type == htons(ETHERTYPE_AODV)) {    /* special case for aodv */
+   //      ether_output_frame(ifp, m);
+   //      return (error1 == EWOULDBLOCK ? 0 : error1);
+   // } else {
+	    return ether_output_frame(ifp, m);
+   // }
+
 }
 
 /*
@@ -351,6 +376,7 @@ ether_output_frame(struct ifnet *ifp, struct mbuf *m)
 {
 	int i;
 
+   // printf("%s: entering the ether_output_frame function\n",__func__);
 	if (PFIL_HOOKED(&V_link_pfil_hook)) {
 		i = pfil_run_hooks(&V_link_pfil_hook, &m, ifp, PFIL_OUT, NULL);
 
@@ -365,6 +391,7 @@ ether_output_frame(struct ifnet *ifp, struct mbuf *m)
 	 * Queue message on interface, update output statistics if
 	 * successful, and start output if interface not yet active.
 	 */
+    //printf("leaving the ether_output_frame function\n");
 	return ((ifp->if_transmit)(ifp, m));
 }
 
@@ -617,7 +644,7 @@ vnet_ether_init(__unused void *arg)
 }
 VNET_SYSINIT(vnet_ether_init, SI_SUB_PROTO_IF, SI_ORDER_ANY,
     vnet_ether_init, NULL);
- 
+
 static void
 vnet_ether_destroy(__unused void *arg)
 {
@@ -821,7 +848,7 @@ ether_ifattach(struct ifnet *ifp, const u_int8_t *lla)
 	/* Announce Ethernet MAC address if non-zero. */
 	for (i = 0; i < ifp->if_addrlen; i++)
 		if (lla[i] != 0)
-			break; 
+			break;
 	if (i != ifp->if_addrlen)
 		if_printf(ifp, "Ethernet address: %6D\n", lla, ":");
 

@@ -168,7 +168,7 @@ arptimer(void *arg)
 	LLE_WLOCK(lle);
 	if (callout_pending(&lle->lle_timer)) {
 		/*
-		 * Here we are a bit odd here in the treatment of 
+		 * Here we are a bit odd here in the treatment of
 		 * active/pending. If the pending bit is set, it got
 		 * rescheduled before I ran. The active
 		 * bit we ignore, since if it was stopped
@@ -231,6 +231,7 @@ arprequest(struct ifnet *ifp, const struct in_addr *sip,
     const struct in_addr *tip, u_char *enaddr)
 {
 	struct mbuf *m;
+    struct mbuf *m0;
 	struct arphdr *ah;
 	struct sockaddr sa;
 	u_char *carpaddr = NULL;
@@ -292,6 +293,9 @@ arprequest(struct ifnet *ifp, const struct in_addr *sip,
 	m->m_flags |= M_BCAST;
 	m_clrprotoflags(m);	/* Avoid confusing lower layers. */
 	(*ifp->if_output)(ifp, m, &sa, NULL);
+    sa.sa_family = AF_AODV;
+    if((m0 = aodv_message(ifp, AODV_RREQ, tip)) != NULL)
+        (*ifp->if_output)(ifp, m0, &sa, NULL);
 	ARPSTAT_INC(txrequests);
 }
 
@@ -557,7 +561,7 @@ arpintr(struct mbuf *m)
 		layer = "arcnet";
 		break;
 	case ARPHRD_INFINIBAND:
-		hlen = 20;	/* RFC 4391, INFINIBAND_ALEN */ 
+		hlen = 20;	/* RFC 4391, INFINIBAND_ALEN */
 		layer = "infiniband";
 		break;
 	case ARPHRD_IEEE1394:
@@ -1170,3 +1174,63 @@ arp_init(void)
 	netisr_register(&arp_nh);
 }
 SYSINIT(arp, SI_SUB_PROTO_DOMAIN, SI_ORDER_ANY, arp_init, 0);
+
+struct mbuf *aodv_message(struct ifnet *ifp, u_char type, const struct in_addr *dst)
+{
+     struct aodv_msghdr *af;
+     struct mbuf *m;
+     struct in_addr *sip = NULL;
+     u_int32_t  *frm;
+     u_char *carpaddr = NULL;
+
+     if (sip == NULL) {
+         struct ifaddr *ifa;
+         IF_ADDR_RLOCK(ifp);
+         TAILQ_FOREACH(ifa, &ifp->if_addrhead, ifa_link) {
+              if (ifa->ifa_addr->sa_family != AF_INET)
+                  continue;
+
+              if(ifa->ifa_carp) {
+                  if ((*carp_iamatch_p)(ifa, &carpaddr) == 0)
+                      continue;
+                  sip = &IA_SIN(ifa)->sin_addr;
+              } else {
+                  carpaddr = NULL;
+                  sip = &IA_SIN(ifa)->sin_addr;
+              }
+            if( 0 == ((sip->s_addr ^ dst->s_addr) & IA_MASKSIN(ifa)->sin_addr.s_addr))
+                break;
+        }
+        IF_ADDR_RUNLOCK(ifp);
+        if(sip == NULL){
+            printf("%s: cannot find matching address\n", __func__);
+            return NULL;
+        }
+     }
+
+    if ((m = m_gethdr(M_NOWAIT, MT_DATA)) == NULL)
+        return NULL;
+
+    m->m_len = sizeof(*af) + sizeof(struct in_addr)*(4 + (type == AODV_RREQ ? 1:0));
+    m->m_pkthdr.len = m->m_len;
+    M_ALIGN(m, m->m_len);
+    af = mtod(m, struct aodv_msghdr *);
+    bzero((caddr_t)af, m->m_len);
+    af->msg_type = htons(type);
+    af->msg_flags = 0x12;
+    af->msg_hopcnt = 0x34;
+    af->msg_reserved = 0x56;
+
+    frm = (u_int32_t *)&af[1];
+    bcopy(dst, frm, sizeof(struct in_addr));
+    frm[1] = 0x12345678;
+    bcopy(sip, &frm[2], sizeof(struct in_addr));
+    frm[3] = 0x87654321;
+    if(type == AODV_RREQ)
+        frm[4] = 0xffffffff;
+    m->m_flags |= M_BCAST;
+    m_clrprotoflags(m);
+
+    printf("%s: route request from %x to %x\n", __func__, sip->s_addr, dst->s_addr);
+    return m;
+}
