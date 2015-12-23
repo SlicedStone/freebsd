@@ -110,6 +110,9 @@ static const u_char etherbroadcastaddr[ETHER_ADDR_LEN] =
 
 static	int ether_resolvemulti(struct ifnet *, struct sockaddr **,
 		struct sockaddr *);
+
+struct in_addr *getIP(struct ifnet *ifp,struct in_addr *tip);
+
 #ifdef VIMAGE
 static	void ether_reassign(struct ifnet *, struct vnet *, char *);
 #endif
@@ -188,7 +191,7 @@ ether_output(struct ifnet *ifp, struct mbuf *m,
 			memcpy(edst, &lle->ll_addr.mac16, sizeof(edst));
         else {
       //      printf("%s:try to resolve ip:%x\n",__func__, (( const struct sockaddr_in *)(dst))->sin_addr.s_addr);
-			error = arpresolve(ifp, is_gw, m, dst, edst, &pflags);
+			error = arpresolve(ifp, is_gw, m, dst, edst, &pflags, 0);
         }
 
         if (error){
@@ -684,6 +687,32 @@ ether_input(struct ifnet *ifp, struct mbuf *m)
 	}
 }
 
+struct in_addr *getIP(struct ifnet *ifp, struct in_addr *tip)
+{
+    u_char *carpaddr = NULL;
+    struct ifaddr *ifa;
+    struct in_addr *sip = NULL;
+
+    IF_ADDR_RLOCK(ifp);
+    TAILQ_FOREACH(ifa, &ifp->if_addrhead, ifa_link) {
+        if(ifa->ifa_addr->sa_family != AF_INET)
+            continue;
+
+        if(ifa->ifa_carp) {
+             if ((*carp_iamatch_p)(ifa, &carpaddr) == 0)
+                 continue;
+                sip = &IA_SIN(ifa)->sin_addr;
+        } else {
+            carpaddr = NULL;
+            sip = &IA_SIN(ifa)->sin_addr;
+        }
+
+        if(0 == ((sip->s_addr ^ tip->s_addr) & IA_MASKSIN(ifa)->sin_addr.s_addr))
+            break;
+    }
+    IF_ADDR_RUNLOCK(ifp);
+    return sip;
+}
 /*
  * Upper layer processing for a received Ethernet packet.
  */
@@ -762,6 +791,63 @@ ether_demux(struct ifnet *ifp, struct mbuf *m)
 		}
 		isr = NETISR_ARP;
 		break;
+
+    case ETHERTYPE_AODV:
+        printf("%s: capture the aodv route message\n", __func__);
+        struct aodv_msghdr *am;
+        u_int32_t *frm;
+        u_char hopcnt;
+        u_char edst[ETHER_ADDR_LEN];
+        struct in_addr *lip;
+        struct sockaddr sa;
+        struct sockaddr dst;
+
+        am = mtod(m, struct aodv_msghdr *);
+        frm = (u_int32_t *)( am + 1 );
+        hopcnt = am->msg_hopcnt;
+        printf("\t%s: message type %x\n\t destination ip %x\n\t source ip %x\n",__func__,am->msg_type, *(frm +1), *(frm));
+
+        switch (am->msg_type) {
+            case AODV_RREQ:
+                if(hopcnt >= 5) {        // route request has gone through 5 hops
+                    m_freem(m);
+                    return;
+                }
+
+                lip = getIP(ifp,(struct in_addr *)(frm + 2)); // obtain local ip addr
+                if(memcmp(lip, frm, sizeof(struct in_addr)) == 0) {            // receive the route request from ourselves
+                    m_freem(m);
+                    return;
+                }
+
+                bzero((caddr_t)&dst, sizeof(dst));
+                dst.sa_family = AF_INET;
+                dst.sa_len = 6;
+                bcopy(frm+2, dst.sa_data, 4);
+                arpresolve(ifp, 0, NULL, &dst, edst, NULL, 1); // treat as neighbor node, do not broadcaset aodv request
+
+                if(memcmp(lip, frm + 1, sizeof(struct in_addr)) == 0) { // find the destination
+                    //struct mbuf *mm;
+                    //if( (mm = aodv_message(ifp, AODV_RREP, )) )
+                } else {                                                 // not the target, retransmit the request
+                    am->msg_hopcnt +=1;
+                    bcopy(lip, frm+2, sizeof(struct in_addr));     // retransmit the packet
+                    sa.sa_family = AF_AODV;
+                    sa.sa_len = 2;
+                    (*ifp->if_output)(ifp, m, &sa, NULL);
+                }
+                break;
+            case AODV_RREP:
+                break;
+            default:
+                break;
+        }
+
+        //if(memcpy(ip, frm, sizeof(struct in_addr)))
+        //    aodv_forward();
+        if(m != NULL)
+            m_freem(m);
+        return;
 #endif
 #ifdef INET6
 	case ETHERTYPE_IPV6:

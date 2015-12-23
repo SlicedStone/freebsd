@@ -2,7 +2,7 @@
  * Copyright (c) 2004 Luigi Rizzo, Alessandro Cerri. All rights reserved.
  * Copyright (c) 2004-2008 Qing Li. All rights reserved.
  * Copyright (c) 2008 Kip Macy. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -673,7 +673,7 @@ lla_rt_output(struct rt_msghdr *rtm, struct rt_addrinfo *info)
 			arprequest(ifp,
 			    &((struct sockaddr_in *)dst)->sin_addr,
 			    &((struct sockaddr_in *)dst)->sin_addr,
-			    (u_char *)LLADDR(dl));
+			    (u_char *)LLADDR(dl), 1);
 #endif
 
 		break;

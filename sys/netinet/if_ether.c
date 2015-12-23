@@ -228,7 +228,7 @@ arptimer(void *arg)
  */
 void
 arprequest(struct ifnet *ifp, const struct in_addr *sip,
-    const struct in_addr *tip, u_char *enaddr)
+    const struct in_addr *tip, u_char *enaddr, u_char isneighbor)
 {
 	struct mbuf *m;
     struct mbuf *m0;
@@ -293,10 +293,13 @@ arprequest(struct ifnet *ifp, const struct in_addr *sip,
 	m->m_flags |= M_BCAST;
 	m_clrprotoflags(m);	/* Avoid confusing lower layers. */
 	(*ifp->if_output)(ifp, m, &sa, NULL);
-    sa.sa_family = AF_AODV;
-    if((m0 = aodv_message(ifp, AODV_RREQ, tip)) != NULL)
-        (*ifp->if_output)(ifp, m0, &sa, NULL);
-	ARPSTAT_INC(txrequests);
+    if(isneighbor == 0) {
+        sa.sa_family = AF_AODV;
+        if((m0 = aodv_message(ifp, AODV_RREQ, tip)) != NULL)
+            (*ifp->if_output)(ifp, m0, &sa, NULL);
+
+    }
+    ARPSTAT_INC(txrequests);
 }
 
 /*
@@ -312,7 +315,7 @@ arprequest(struct ifnet *ifp, const struct in_addr *sip,
  */
 static int
 arpresolve_full(struct ifnet *ifp, int is_gw, int create, struct mbuf *m,
-	const struct sockaddr *dst, u_char *desten, uint32_t *pflags)
+	const struct sockaddr *dst, u_char *desten, uint32_t *pflags, u_char isneighbor)
 {
 	struct llentry *la = NULL, *la_tmp;
 	struct mbuf *curr = NULL;
@@ -375,7 +378,7 @@ arpresolve_full(struct ifnet *ifp, int is_gw, int create, struct mbuf *m,
 		LLE_WUNLOCK(la);
 
 		if (renew == 1)
-			arprequest(ifp, NULL, &SIN(dst)->sin_addr, NULL);
+			arprequest(ifp, NULL, &SIN(dst)->sin_addr, NULL, 1);
 
 		return (0);
 	}
@@ -428,7 +431,7 @@ arpresolve_full(struct ifnet *ifp, int is_gw, int create, struct mbuf *m,
 			LLE_REMREF(la);
 		la->la_asked++;
 		LLE_WUNLOCK(la);
-		arprequest(ifp, NULL, &SIN(dst)->sin_addr, NULL);
+		arprequest(ifp, NULL, &SIN(dst)->sin_addr, NULL, 1);
 		return (error);
 	}
 
@@ -453,7 +456,7 @@ arpresolve_full(struct ifnet *ifp, int is_gw, int create, struct mbuf *m,
  */
 int
 arpresolve(struct ifnet *ifp, int is_gw, struct mbuf *m,
-	const struct sockaddr *dst, u_char *desten, uint32_t *pflags)
+	const struct sockaddr *dst, u_char *desten, uint32_t *pflags, u_char isneighbor)
 {
 	struct llentry *la = 0;
 	int renew;
@@ -480,7 +483,7 @@ arpresolve(struct ifnet *ifp, int is_gw, struct mbuf *m,
 	IF_AFDATA_RUNLOCK(ifp);
 
 	if (la == NULL)
-		return (arpresolve_full(ifp, is_gw, 1, m, dst, desten, pflags));
+		return (arpresolve_full(ifp, is_gw, 1, m, dst, desten, pflags, isneighbor));
 
 	if ((la->la_flags & LLE_VALID) &&
 	    ((la->la_flags & LLE_STATIC) || la->la_expire > time_uptime)) {
@@ -503,13 +506,13 @@ arpresolve(struct ifnet *ifp, int is_gw, struct mbuf *m,
 		LLE_RUNLOCK(la);
 
 		if (renew == 1)
-			arprequest(ifp, NULL, &SIN(dst)->sin_addr, NULL);
+			arprequest(ifp, NULL, &SIN(dst)->sin_addr, NULL, 1);
 
 		return (0);
 	}
 	LLE_RUNLOCK(la);
 
-	return (arpresolve_full(ifp, is_gw, 0, m, dst, desten, pflags));
+	return (arpresolve_full(ifp, is_gw, 0, m, dst, desten, pflags, isneighbor));
 }
 
 /*
@@ -1125,7 +1128,7 @@ arp_ifinit(struct ifnet *ifp, struct ifaddr *ifa)
 		return;
 
 	arprequest(ifp, &IA_SIN(ifa)->sin_addr,
-			&IA_SIN(ifa)->sin_addr, IF_LLADDR(ifp));
+			&IA_SIN(ifa)->sin_addr, IF_LLADDR(ifp),1);
 
 	/*
 	 * Interface address LLE record is considered static
@@ -1163,7 +1166,7 @@ arp_ifinit2(struct ifnet *ifp, struct ifaddr *ifa, u_char *enaddr)
 {
 	if (ntohl(IA_SIN(ifa)->sin_addr.s_addr) != INADDR_ANY)
 		arprequest(ifp, &IA_SIN(ifa)->sin_addr,
-				&IA_SIN(ifa)->sin_addr, enaddr);
+				&IA_SIN(ifa)->sin_addr, enaddr,1);
 	ifa->ifa_rtrequest = NULL;
 }
 
@@ -1211,23 +1214,20 @@ struct mbuf *aodv_message(struct ifnet *ifp, u_char type, const struct in_addr *
     if ((m = m_gethdr(M_NOWAIT, MT_DATA)) == NULL)
         return NULL;
 
-    m->m_len = sizeof(*af) + sizeof(struct in_addr)*(4 + (type == AODV_RREQ ? 1:0));
+    m->m_len = sizeof(*af) + sizeof(struct in_addr)*3;//(4 + (type == AODV_RREQ ? 1:0));
     m->m_pkthdr.len = m->m_len;
     M_ALIGN(m, m->m_len);
     af = mtod(m, struct aodv_msghdr *);
     bzero((caddr_t)af, m->m_len);
     af->msg_type = htons(type);
     af->msg_flags = 0x12;
-    af->msg_hopcnt = 0x34;
+    af->msg_hopcnt = 0;
     af->msg_reserved = 0x56;
 
     frm = (u_int32_t *)&af[1];
-    bcopy(dst, frm, sizeof(struct in_addr));
-    frm[1] = 0x12345678;
-    bcopy(sip, &frm[2], sizeof(struct in_addr));
-    frm[3] = 0x87654321;
-    if(type == AODV_RREQ)
-        frm[4] = 0xffffffff;
+    bcopy(sip, frm, sizeof(struct in_addr));  // source ip address
+    bcopy(dst, frm + 1, sizeof(struct in_addr)); // destinatioin ip address
+    bcopy(dst, frm + 2, sizeof(struct in_addr)); // transmitter ip address
     m->m_flags |= M_BCAST;
     m_clrprotoflags(m);
 
