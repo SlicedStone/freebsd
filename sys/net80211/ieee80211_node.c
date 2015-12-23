@@ -2827,3 +2827,15 @@ ieee80211_getsignal(struct ieee80211vap *vap, int8_t *rssi, int8_t *noise)
 	if (vap->iv_opmode != IEEE80211_M_STA)
 		*rssi = ieee80211_getrssi(vap);
 }
+
+int ieee80211_node_number(struct ieee80211_node_table *nt)
+{
+     int i;
+     for(i=0;i<nt->nt_keyixmax;i++)
+     {
+         const struct ieee80211_node *ni=nt->nt_keyixmap[i];
+         if(ni==NULL)
+             break;
+     }
+     return i;
+}

@@ -420,7 +420,7 @@ arpresolve_full(struct ifnet *ifp, int is_gw, int create, struct mbuf *m,
 	else
 		error = is_gw != 0 ? EHOSTUNREACH : EHOSTDOWN;
 
-	if (renew) {
+	if (renew) {                        // alloc the entry for the first time
 		int canceled;
 
 		LLE_ADDREF(la);
@@ -431,7 +431,7 @@ arpresolve_full(struct ifnet *ifp, int is_gw, int create, struct mbuf *m,
 			LLE_REMREF(la);
 		la->la_asked++;
 		LLE_WUNLOCK(la);
-		arprequest(ifp, NULL, &SIN(dst)->sin_addr, NULL, 1);
+		arprequest(ifp, NULL, &SIN(dst)->sin_addr, NULL, isneighbor);
 		return (error);
 	}
 
@@ -483,7 +483,7 @@ arpresolve(struct ifnet *ifp, int is_gw, struct mbuf *m,
 	IF_AFDATA_RUNLOCK(ifp);
 
 	if (la == NULL)
-		return (arpresolve_full(ifp, is_gw, 1, m, dst, desten, pflags, isneighbor));
+		return (arpresolve_full(ifp, is_gw, 1, m, dst, desten, pflags, isneighbor));  // not found, treat ad a unknown node
 
 	if ((la->la_flags & LLE_VALID) &&
 	    ((la->la_flags & LLE_STATIC) || la->la_expire > time_uptime)) {
@@ -506,13 +506,13 @@ arpresolve(struct ifnet *ifp, int is_gw, struct mbuf *m,
 		LLE_RUNLOCK(la);
 
 		if (renew == 1)
-			arprequest(ifp, NULL, &SIN(dst)->sin_addr, NULL, 1);
+			arprequest(ifp, NULL, &SIN(dst)->sin_addr, NULL, 1);   // since we need to update it, presumed as a neighbour
 
 		return (0);
 	}
 	LLE_RUNLOCK(la);
 
-	return (arpresolve_full(ifp, is_gw, 0, m, dst, desten, pflags, isneighbor));
+	return (arpresolve_full(ifp, is_gw, 0, m, dst, desten, pflags, 1));
 }
 
 /*

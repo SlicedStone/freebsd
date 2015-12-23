@@ -352,6 +352,7 @@ void	ieee80211_ies_expand(struct ieee80211_ies *);
 	(_ies)._ie = (_ies).data + (_off);			\
 } while (0)
 
+int ieee80211_node_number(struct ieee80211_node_table *);
 /*
  * Table of ieee80211_node instances.  Each ieee80211com
  * has one that holds association stations (when operating

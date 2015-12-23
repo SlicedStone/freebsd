@@ -710,6 +710,9 @@ ieee80211_tdma_update_beacon(struct ieee80211vap *vap,
 {
 	struct ieee80211_tdma_state *ts = vap->iv_tdma;
 
+    struct ieee80211com *ic=vap->iv_ic;
+    int count;
+
 	KASSERT(vap->iv_caps & IEEE80211_C_TDMA,
 	     ("not a tdma vap, caps 0x%x", vap->iv_caps));
 
@@ -727,6 +730,11 @@ ieee80211_tdma_update_beacon(struct ieee80211vap *vap,
 		 * This allows us to miss a few beacons before marking
 		 * a slot free for re-use.
 		 */
+
+        count=ieee80211_node_number(&ic->ic_sta);
+        if(ts->tdma_slotcnt>count+1)
+            ts->tdma_slotcnt =count+1;
+
 		ts->tdma_inuse[0] = ts->tdma_active[0];
 		ts->tdma_active[0] = 0x01;
 		/* update next time 'round */
