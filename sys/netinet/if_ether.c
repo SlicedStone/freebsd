@@ -87,7 +87,7 @@ static VNET_DEFINE(int, arpt_keep) = (20*60);	/* once resolved, good for 20
 						 * minutes */
 static VNET_DEFINE(int, arp_maxtries) = 5;
 static VNET_DEFINE(int, arp_proxyall) = 0;
-static VNET_DEFINE(int, arpt_down) = 20;	/* keep incomplete entries for
+static VNET_DEFINE(int, arpt_down) = 5;	/* keep incomplete entries for
 						 * 20 seconds */
 VNET_PCPUSTAT_DEFINE(struct arpstat, arpstat);  /* ARP statistics, see if_arp.h */
 VNET_PCPUSTAT_SYSINIT(arpstat);
@@ -377,8 +377,10 @@ arpresolve_full(struct ifnet *ifp, int is_gw, int create, struct mbuf *m,
 
 		LLE_WUNLOCK(la);
 
-		if (renew == 1)
+        if (renew == 1) {
 			arprequest(ifp, NULL, &SIN(dst)->sin_addr, NULL, 1);
+        }
+
 
 		return (0);
 	}
@@ -505,8 +507,10 @@ arpresolve(struct ifnet *ifp, int is_gw, struct mbuf *m,
 
 		LLE_RUNLOCK(la);
 
-		if (renew == 1)
+        if (renew == 1) {
 			arprequest(ifp, NULL, &SIN(dst)->sin_addr, NULL, 1);   // since we need to update it, presumed as a neighbour
+        }
+
 
 		return (0);
 	}
@@ -1231,6 +1235,6 @@ struct mbuf *aodv_message(struct ifnet *ifp, u_char type, const struct in_addr *
     m->m_flags |= M_BCAST;
     m_clrprotoflags(m);
 
-    printf("%s: route request from %x to %x\n", __func__, sip->s_addr, dst->s_addr);
+    printf("\n%s: route request from %x to %x\n", __func__, sip->s_addr, dst->s_addr);
     return m;
 }

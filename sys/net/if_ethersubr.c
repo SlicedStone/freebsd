@@ -797,41 +797,72 @@ ether_demux(struct ifnet *ifp, struct mbuf *m)
         struct aodv_msghdr *am;
         u_int32_t *frm;
         u_char hopcnt;
-        u_char edst[ETHER_ADDR_LEN];
         struct in_addr *lip;
+        struct in_addr *tx_ip;
         struct sockaddr sa;
         struct sockaddr dst;
+        struct llentry *la = NULL;
+        u_char existed = 0;
 
         am = mtod(m, struct aodv_msghdr *);
-        frm = (u_int32_t *)( am + 1 );
+        frm = (u_int32_t *)&am[1];
         hopcnt = am->msg_hopcnt;
-        printf("\t%s: message type %x\n\t destination ip %x\n\t source ip %x\n",__func__,am->msg_type, *(frm +1), *(frm));
+        printf("\n\t%s: message type %x\n\t destination ip %x\n\t source ip %x\n",__func__,am->msg_type, *(frm +1), *(frm));
 
         switch (am->msg_type) {
             case AODV_RREQ:
+                  /*  AODV_RREQ:
+                  *      header:
+                  *      source ip:
+                  *      destination ip:
+                  *      transmitter ip:
+                  */
                 if(hopcnt >= 5) {        // route request has gone through 5 hops
-                    m_freem(m);
-                    return;
+                    break;
                 }
 
                 lip = getIP(ifp,(struct in_addr *)(frm + 2)); // obtain local ip addr
                 if(memcmp(lip, frm, sizeof(struct in_addr)) == 0) {            // receive the route request from ourselves
-                    m_freem(m);
-                    return;
+                    printf("\nduplicate route request, discard it\n");
+                    break;
                 }
 
                 bzero((caddr_t)&dst, sizeof(dst));
                 dst.sa_family = AF_INET;
                 dst.sa_len = 6;
-                bcopy(frm+2, dst.sa_data, 4);
-                arpresolve(ifp, 0, NULL, &dst, edst, NULL, 1); // treat as neighbor node, do not broadcaset aodv request
+                bcopy((caddr_t)frm, (caddr_t)dst.sa_data, 4);                  // source ip
+                printf("\npanic 1 for memcpy\n");
+
+                IF_AFDATA_RLOCK(ifp);
+                la = lla_lookup(LLTABLE(ifp), 0, &dst);
+                if((la != NULL) && (la->la_flags & LLE_VALID))
+                {
+                    printf("\nthe originator is a neighbor already\n");
+                    existed = 1;
+                }
+
+                bcopy((caddr_t)&frm[2], (caddr_t)dst.sa_data, 4);                // transmitter ip, which must be a neighbor
+                printf("\npanic 2 for memcpy\n");
+                la = lla_lookup(LLTABLE(ifp), 0, &dst);
+                IF_AFDATA_RUNLOCK(ifp);
+                if((la == NULL ) || ((la->la_flags & LLE_VALID) == 0)) {
+                    printf("\ntransmitter not as a neighbor\n");
+                    bcopy((caddr_t)&frm[2], tx_ip, sizeof(struct in_addr));
+                    printf("\npanic 3 for memcpy\n");
+                    arprequest(ifp, lip, tx_ip,NULL, 1);       // send arp request to the transmitter
+                }
 
                 if(memcmp(lip, frm + 1, sizeof(struct in_addr)) == 0) { // find the destination
                     //struct mbuf *mm;
                     //if( (mm = aodv_message(ifp, AODV_RREP, )) )
+                    printf("\nfind the destination\n");
+                    if(existed || memcmp(frm, frm+2, sizeof(struct in_addr)) ==0)   // source ip as a neighbor
+                        break;
+
                 } else {                                                 // not the target, retransmit the request
+                    printf("\nforward the route request\n");
                     am->msg_hopcnt +=1;
-                    bcopy(lip, frm+2, sizeof(struct in_addr));     // retransmit the packet
+                    bcopy(lip, &frm[2], sizeof(struct in_addr));     // retransmit the packet
                     sa.sa_family = AF_AODV;
                     sa.sa_len = 2;
                     (*ifp->if_output)(ifp, m, &sa, NULL);
@@ -848,6 +879,7 @@ ether_demux(struct ifnet *ifp, struct mbuf *m)
         if(m != NULL)
             m_freem(m);
         return;
+        break;
 #endif
 #ifdef INET6
 	case ETHERTYPE_IPV6:
