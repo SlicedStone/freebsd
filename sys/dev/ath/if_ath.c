@@ -156,7 +156,7 @@ static void	ath_stop(struct ath_softc *);
 static int	ath_reset_vap(struct ieee80211vap *, u_long);
 static int	ath_transmit(struct ieee80211com *, struct mbuf *);
 static int	ath_media_change(struct ifnet *);
-static void	ath_watchdog(void *);
+//static void	ath_watchdog(void *);
 static int	ath_ioctl(struct ieee80211com *, u_long, void *);
 static void	ath_parent(struct ieee80211com *);
 static void	ath_fatal_proc(void *, int);
@@ -6367,45 +6367,45 @@ ath_setcurmode(struct ath_softc *sc, enum ieee80211_phymode mode)
 	/* NB: caller is responsible for resetting rate control state */
 }
 
-static void
-ath_watchdog(void *arg)
-{
-	struct ath_softc *sc = arg;
-	struct ieee80211com *ic = &sc->sc_ic;
-	int do_reset = 0;
-
-	ATH_LOCK_ASSERT(sc);
-
-	if (sc->sc_wd_timer != 0 && --sc->sc_wd_timer == 0) {
-		uint32_t hangs;
-
-		ath_power_set_power_state(sc, HAL_PM_AWAKE);
-
-		if (ath_hal_gethangstate(sc->sc_ah, 0xffff, &hangs) &&
-		    hangs != 0) {
-			device_printf(sc->sc_dev, "%s hang detected (0x%x)\n",
-			    hangs & 0xff ? "bb" : "mac", hangs);
-		} else
-			device_printf(sc->sc_dev, "device timeout\n");
-		do_reset = 1;
-		counter_u64_add(ic->ic_oerrors, 1);
-		sc->sc_stats.ast_watchdog++;
-
-		ath_power_restore_power_state(sc);
-	}
-
-	/*
-	 * We can't hold the lock across the ath_reset() call.
-	 *
-	 * And since this routine can't hold a lock and sleep,
-	 * do the reset deferred.
-	 */
-	if (do_reset) {
-		taskqueue_enqueue(sc->sc_tq, &sc->sc_resettask);
-	}
-
-	callout_schedule(&sc->sc_wd_ch, hz);
-}
+/* static void */
+//ath_watchdog(void *arg)
+//{
+//	struct ath_softc *sc = arg;
+//	struct ieee80211com *ic = &sc->sc_ic;
+//	int do_reset = 0;
+//
+//	ATH_LOCK_ASSERT(sc);
+//
+//	if (sc->sc_wd_timer != 0 && --sc->sc_wd_timer == 0) {
+//		uint32_t hangs;
+//
+//		ath_power_set_power_state(sc, HAL_PM_AWAKE);
+//
+//		if (ath_hal_gethangstate(sc->sc_ah, 0xffff, &hangs) &&
+//		    hangs != 0) {
+//			device_printf(sc->sc_dev, "%s hang detected (0x%x)\n",
+//			    hangs & 0xff ? "bb" : "mac", hangs);
+//		} else
+//			device_printf(sc->sc_dev, "device timeout\n");
+//		do_reset = 1;
+//		counter_u64_add(ic->ic_oerrors, 1);
+//		sc->sc_stats.ast_watchdog++;
+//
+//		ath_power_restore_power_state(sc);
+//	}
+//
+//	/*
+//	 * We can't hold the lock across the ath_reset() call.
+//	 *
+//	 * And since this routine can't hold a lock and sleep,
+//	 * do the reset deferred.
+//	 */
+//	if (do_reset) {
+//		taskqueue_enqueue(sc->sc_tq, &sc->sc_resettask);
+//	}
+//
+//	callout_schedule(&sc->sc_wd_ch, hz);
+//}
 
 /*
  * Fetch the rate control statistics for the given node.
