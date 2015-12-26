@@ -799,7 +799,7 @@ ether_demux(struct ifnet *ifp, struct mbuf *m)
         u_char hopcnt;
         struct in_addr *lip;
         struct sockaddr sa;
-        struct sockaddr dst;
+        struct sockaddr_in dst;
         struct llentry *la = NULL;
         u_char existed = 0;
 
@@ -817,6 +817,7 @@ ether_demux(struct ifnet *ifp, struct mbuf *m)
                   *      transmitter ip:
                   */
                 if(hopcnt >= 5) {        // route request has gone through 5 hops
+                    printf("the route request packet has been through the maximum hops, thus discard it without fording it");
                     m_freem(m);
                     break;
                 }
@@ -830,12 +831,13 @@ ether_demux(struct ifnet *ifp, struct mbuf *m)
                 }
 
                 bzero((caddr_t)&dst, sizeof(dst));
-                dst.sa_family = AF_INET;
-                dst.sa_len = 6;
-                bcopy((caddr_t)frm, (caddr_t)dst.sa_data, 4);                  // source ip
+                dst.sin_family = AF_INET;
+                dst.sin_len = 16;
+                dst.sin_port = 0;
+                bcopy((caddr_t)frm, (caddr_t)&(dst.sin_addr), 4);                  // source ip
 
                 IF_AFDATA_RLOCK(ifp);
-                la = lla_lookup(LLTABLE(ifp), 0, &dst);
+                la = lla_lookup(LLTABLE(ifp), 0, (struct sockaddr *)&dst);
                 if((la != NULL) && (la->la_flags & LLE_VALID))
                 {
                     printf("\nthe originator is a neighbor already\n");
@@ -844,8 +846,8 @@ ether_demux(struct ifnet *ifp, struct mbuf *m)
                      printf("\nthe originator has not been treated as a neighbor\n");
                 }
 
-                bcopy((caddr_t)&frm[2], (caddr_t)dst.sa_data, 4);                // transmitter ip, which must be a neighbor
-                la = lla_lookup(LLTABLE(ifp), 0, &dst);
+                bcopy((caddr_t)&frm[2], (caddr_t)&(dst.sin_addr), 4);                // transmitter ip, which must be a neighbor
+                la = lla_lookup(LLTABLE(ifp), 0, (struct sockaddr *)&dst);
                 IF_AFDATA_RUNLOCK(ifp);
 
                 if((la != NULL) && (la->la_flags && LLE_VALID)) {

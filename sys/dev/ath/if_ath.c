@@ -2559,7 +2559,7 @@ ath_init(struct ath_softc *sc)
 		__func__, sc->sc_imask);
 
 	sc->sc_running = 1;
-	callout_reset(&sc->sc_wd_ch, hz, ath_watchdog, sc);
+	//callout_reset(&sc->sc_wd_ch, hz, ath_watchdog, sc);
 	ath_hal_intrset(ah, sc->sc_imask);
 
 	ath_power_restore_power_state(sc);
@@ -3387,7 +3387,7 @@ finish:
 	ATH_UNLOCK(sc);
 
 	ATH_KTR(sc, ATH_KTR_TX, 0, "ath_transmit: finished");
-	
+
 	return (retval);
 }
 
@@ -3933,7 +3933,7 @@ ath_descdma_cleanup(struct ath_softc *sc,
 				 * XXX it should have been freed by the
 				 * owner!
 				 */
-				
+
 				if (do_warning == 0) {
 					do_warning = 1;
 					device_printf(sc->sc_dev,
@@ -6556,7 +6556,7 @@ ath_parent(struct ieee80211com *ic)
 	}
 	ATH_UNLOCK(sc);
 
-	if (error == 0) {                        
+	if (error == 0) {
 #ifdef ATH_TX99_DIAG
 		if (sc->sc_tx99 != NULL)
 			sc->sc_tx99->start(sc->sc_tx99);

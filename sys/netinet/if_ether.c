@@ -1231,7 +1231,7 @@ struct mbuf *aodv_message(struct ifnet *ifp, u_char type, const struct in_addr *
     frm = (u_int32_t *)&af[1];
     bcopy(sip, frm, sizeof(struct in_addr));  // source ip address
     bcopy(dst, frm + 1, sizeof(struct in_addr)); // destinatioin ip address
-    bcopy(dst, frm + 2, sizeof(struct in_addr)); // transmitter ip address
+    bcopy(sip, frm + 2, sizeof(struct in_addr)); // transmitter ip address
     m->m_flags |= M_BCAST;
     m_clrprotoflags(m);
 
