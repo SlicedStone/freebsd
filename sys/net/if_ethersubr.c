@@ -798,7 +798,6 @@ ether_demux(struct ifnet *ifp, struct mbuf *m)
         u_int32_t *frm;
         u_char hopcnt;
         struct in_addr *lip;
-        struct in_addr *tx_ip;
         struct sockaddr sa;
         struct sockaddr dst;
         struct llentry *la = NULL;
@@ -807,7 +806,7 @@ ether_demux(struct ifnet *ifp, struct mbuf *m)
         am = mtod(m, struct aodv_msghdr *);
         frm = (u_int32_t *)&am[1];
         hopcnt = am->msg_hopcnt;
-        printf("\n\t%s: message type %x\n\t destination ip %x\n\t source ip %x\n",__func__,am->msg_type, *(frm +1), *(frm));
+        printf("\n\t%s: message type %x\n\t destination ip %x\n\t source ip %x transmitter ip %x\n",__func__,am->msg_type, *(frm +1), *(frm), *(frm+2));
 
         switch (am->msg_type) {
             case AODV_RREQ:
@@ -818,12 +817,15 @@ ether_demux(struct ifnet *ifp, struct mbuf *m)
                   *      transmitter ip:
                   */
                 if(hopcnt >= 5) {        // route request has gone through 5 hops
+                    m_freem(m);
                     break;
                 }
 
                 lip = getIP(ifp,(struct in_addr *)(frm + 2)); // obtain local ip addr
+                printf("\nlocal ip:%x\n", lip->s_addr);
                 if(memcmp(lip, frm, sizeof(struct in_addr)) == 0) {            // receive the route request from ourselves
                     printf("\nduplicate route request, discard it\n");
+                    m_freem(m);
                     break;
                 }
 
@@ -831,7 +833,6 @@ ether_demux(struct ifnet *ifp, struct mbuf *m)
                 dst.sa_family = AF_INET;
                 dst.sa_len = 6;
                 bcopy((caddr_t)frm, (caddr_t)dst.sa_data, 4);                  // source ip
-                printf("\npanic 1 for memcpy\n");
 
                 IF_AFDATA_RLOCK(ifp);
                 la = lla_lookup(LLTABLE(ifp), 0, &dst);
@@ -839,17 +840,20 @@ ether_demux(struct ifnet *ifp, struct mbuf *m)
                 {
                     printf("\nthe originator is a neighbor already\n");
                     existed = 1;
+                } else {
+                     printf("\nthe originator has not been treated as a neighbor\n");
                 }
 
                 bcopy((caddr_t)&frm[2], (caddr_t)dst.sa_data, 4);                // transmitter ip, which must be a neighbor
-                printf("\npanic 2 for memcpy\n");
                 la = lla_lookup(LLTABLE(ifp), 0, &dst);
                 IF_AFDATA_RUNLOCK(ifp);
-                if((la == NULL ) || ((la->la_flags & LLE_VALID) == 0)) {
-                    printf("\ntransmitter not as a neighbor\n");
-                    bcopy((caddr_t)&frm[2], tx_ip, sizeof(struct in_addr));
-                    printf("\npanic 3 for memcpy\n");
-                    arprequest(ifp, lip, tx_ip,NULL, 1);       // send arp request to the transmitter
+
+                if((la != NULL) && (la->la_flags && LLE_VALID)) {
+                     printf("\ntransmitter is already a neighbor\n");
+                } else {
+                    printf("transmitter has not been treated as a neighbor\n");
+                    printf("\nbefore broadcast arp\n");
+                    arprequest(ifp, lip, &((const struct sockaddr_in *)(&dst))->sin_addr, NULL, 1);
                 }
 
                 if(memcmp(lip, frm + 1, sizeof(struct in_addr)) == 0) { // find the destination
