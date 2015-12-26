@@ -806,7 +806,7 @@ ether_demux(struct ifnet *ifp, struct mbuf *m)
         am = mtod(m, struct aodv_msghdr *);
         frm = (u_int32_t *)&am[1];
         hopcnt = am->msg_hopcnt;
-        printf("\n\t%s: message type %x\n\t destination ip %x\n\t source ip %x transmitter ip %x\n",__func__,am->msg_type, *(frm +1), *(frm), *(frm+2));
+        printf("\n\t%s: message type %x hopcnt %d\n\t destination ip %x\n\t source ip %x transmitter ip %x\n",__func__,am->msg_type, *(frm +1), hopcnt, *(frm), *(frm+2));
 
         switch (am->msg_type) {
             case AODV_RREQ:
