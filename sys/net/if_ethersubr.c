@@ -793,98 +793,100 @@ ether_demux(struct ifnet *ifp, struct mbuf *m)
 		break;
 
     case ETHERTYPE_AODV:
-        printf("%s: capture the aodv route message\n", __func__);
-        struct aodv_msghdr *am;
-        u_int32_t *frm;
-        u_char hopcnt;
-        struct in_addr *lip;
-        struct sockaddr sa;
-        struct sockaddr_in dst;
-        struct llentry *la = NULL;
-        u_char existed = 0;
+      //  printf("%s: capture the aodv route message\n", __func__);
+      //  struct aodv_msghdr *am;
+      //  u_int32_t *frm;
+      //  u_char hopcnt;
+      //  struct in_addr *lip;
+      //  struct sockaddr sa;
+      //  struct sockaddr_in dst;
+      //  struct llentry *la = NULL;
+      //  u_char existed = 0;
 
-        am = mtod(m, struct aodv_msghdr *);
-        frm = (u_int32_t *)&am[1];
-        hopcnt = am->msg_hopcnt;
-        printf("\n\t%s: message type %x hopcnt %d\n\t destination ip %x\n\t source ip %x transmitter ip %x\n",__func__,am->msg_type, *(frm +1), hopcnt, *(frm), *(frm+2));
+      //  am = mtod(m, struct aodv_msghdr *);
+      //  frm = (u_int32_t *)&am[1];
+      //  hopcnt = am->msg_hopcnt;
+      //  printf("\n\t%s: message type %x hopcnt %d\n\t destination ip %x\n\t source ip %x transmitter ip %x\n",__func__,am->msg_type, *(frm +1), hopcnt, *(frm), *(frm+2));
 
-        switch (am->msg_type) {
-            case AODV_RREQ:
-                  /*  AODV_RREQ:
-                  *      header:
-                  *      source ip:
-                  *      destination ip:
-                  *      transmitter ip:
-                  */
-                if(hopcnt >= 5) {        // route request has gone through 5 hops
-                    printf("the route request packet has been through the maximum hops, thus discard it without fording it");
-                    m_freem(m);
-                    break;
-                }
+      //  switch (am->msg_type) {
+      //      case AODV_RREQ:
+      //            /*  AODV_RREQ:
+      //            *      header:
+      //            *      source ip:
+      //            *      destination ip:
+      //            *      transmitter ip:
+      //            */
+      //          if(hopcnt >= 5) {        // route request has gone through 5 hops
+      //              printf("the route request packet has been through the maximum hops, thus discard it without fording it");
+      //              m_freem(m);
+      //              break;
+      //          }
 
-                lip = getIP(ifp,(struct in_addr *)(frm + 2)); // obtain local ip addr
-                printf("\nlocal ip:%x\n", lip->s_addr);
-                if(memcmp(lip, frm, sizeof(struct in_addr)) == 0) {            // receive the route request from ourselves
-                    printf("\nduplicate route request, discard it\n");
-                    m_freem(m);
-                    break;
-                }
+      //          lip = getIP(ifp,(struct in_addr *)(frm + 2)); // obtain local ip addr
+      //          printf("\nlocal ip:%x\n", lip->s_addr);
+      //          if(memcmp(lip, frm, sizeof(struct in_addr)) == 0) {            // receive the route request from ourselves
+      //              printf("\nduplicate route request, discard it\n");
+      //              m_freem(m);
+      //              break;
+      //          }
 
-                bzero((caddr_t)&dst, sizeof(dst));
-                dst.sin_family = AF_INET;
-                dst.sin_len = 16;
-                dst.sin_port = 0;
-                bcopy((caddr_t)frm, (caddr_t)&(dst.sin_addr), 4);                  // source ip
+      //          bzero((caddr_t)&dst, sizeof(dst));
+      //          dst.sin_family = AF_INET;
+      //          dst.sin_len = 16;
+      //          dst.sin_port = 0;
+      //          bcopy((caddr_t)frm, (caddr_t)&(dst.sin_addr), 4);                  // source ip
 
-                IF_AFDATA_RLOCK(ifp);
-                la = lla_lookup(LLTABLE(ifp), 0, (struct sockaddr *)&dst);
-                if((la != NULL) && (la->la_flags & LLE_VALID))
-                {
-                    printf("\nthe originator is a neighbor already\n");
-                    existed = 1;
-                } else {
-                     printf("\nthe originator has not been treated as a neighbor\n");
-                }
+      //          IF_AFDATA_RLOCK(ifp);
+      //          la = lla_lookup(LLTABLE(ifp), 0, (struct sockaddr *)&dst);
+      //          if((la != NULL) && (la->la_flags & LLE_VALID))
+      //          {
+      //              printf("\nthe originator is a neighbor already\n");
+      //              existed = 1;
+      //          } else {
+      //               printf("\nthe originator has not been treated as a neighbor\n");
+      //          }
 
-                bcopy((caddr_t)&frm[2], (caddr_t)&(dst.sin_addr), 4);                // transmitter ip, which must be a neighbor
-                la = lla_lookup(LLTABLE(ifp), 0, (struct sockaddr *)&dst);
-                IF_AFDATA_RUNLOCK(ifp);
+      //          bcopy((caddr_t)&frm[2], (caddr_t)&(dst.sin_addr), 4);                // transmitter ip, which must be a neighbor
+      //          la = lla_lookup(LLTABLE(ifp), 0, (struct sockaddr *)&dst);
+      //          IF_AFDATA_RUNLOCK(ifp);
 
-                if((la != NULL) && (la->la_flags && LLE_VALID)) {
-                     printf("\ntransmitter is already a neighbor\n");
-                } else {
-                    printf("transmitter has not been treated as a neighbor\n");
-                    printf("\nbefore broadcast arp\n");
-                    arprequest(ifp, lip, &((const struct sockaddr_in *)(&dst))->sin_addr, NULL, 1);
-                }
+      //          if((la != NULL) && (la->la_flags && LLE_VALID)) {
+      //               printf("\ntransmitter is already a neighbor\n");
+      //          } else {
+      //              printf("transmitter has not been treated as a neighbor\n");
+      //              printf("\nbefore broadcast arp\n");
+      //              arprequest(ifp, lip, &((const struct sockaddr_in *)(&dst))->sin_addr, NULL, 1);
+      //          }
 
-                if(memcmp(lip, frm + 1, sizeof(struct in_addr)) == 0) { // find the destination
-                    //struct mbuf *mm;
-                    //if( (mm = aodv_message(ifp, AODV_RREP, )) )
-                    printf("\nfind the destination\n");
-                    if(existed || memcmp(frm, frm+2, sizeof(struct in_addr)) ==0)   // source ip as a neighbor
-                        break;
+      //          if(memcmp(lip, frm + 1, sizeof(struct in_addr)) == 0) { // find the destination
+      //              //struct mbuf *mm;
+      //              //if( (mm = aodv_message(ifp, AODV_RREP, )) )
+      //              printf("\nfind the destination\n");
+      //              if(existed || memcmp(frm, frm+2, sizeof(struct in_addr)) ==0)   // source ip as a neighbor
+      //                  break;
 
-                } else {                                                 // not the target, retransmit the request
-                    printf("\nforward the route request\n");
-                    am->msg_hopcnt +=1;
-                    bcopy(lip, &frm[2], sizeof(struct in_addr));     // retransmit the packet
-                    sa.sa_family = AF_AODV;
-                    sa.sa_len = 2;
-                    (*ifp->if_output)(ifp, m, &sa, NULL);
-                }
-                break;
-            case AODV_RREP:
-                break;
-            default:
-                break;
-        }
+      //          } else {                                                 // not the target, retransmit the request
+      //              printf("\nforward the route request\n");
+      //              am->msg_hopcnt +=1;
+      //              bcopy(lip, &frm[2], sizeof(struct in_addr));     // retransmit the packet
+      //              sa.sa_family = AF_AODV;
+      //              sa.sa_len = 2;
+      //              (*ifp->if_output)(ifp, m, &sa, NULL);
+      //          }
+      //          break;
+      //      case AODV_RREP:
+      //          break;
+      //      default:
+      //          break;
+      //  }
 
-        //if(memcpy(ip, frm, sizeof(struct in_addr)))
-        //    aodv_forward();
-        if(m != NULL)
-            m_freem(m);
-        return;
+      //  //if(memcpy(ip, frm, sizeof(struct in_addr)))
+      //  //    aodv_forward();
+      //  if(m != NULL)
+      //      m_freem(m);
+      //  return;
+
+        isr = NETISR_AODV;
         break;
 #endif
 #ifdef INET6

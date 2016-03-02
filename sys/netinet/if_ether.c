@@ -135,6 +135,10 @@ SYSCTL_INT(_net_link_ether_inet, OID_AUTO, max_log_per_second,
 static void	arp_init(void);
 static void	arpintr(struct mbuf *);
 static void	arptimer(void *);
+
+static void aodv_init(void);
+static void aodv_input(struct mbuf *);
+
 #ifdef INET
 static void	in_arpinput(struct mbuf *);
 #endif
@@ -152,6 +156,15 @@ static const struct netisr_handler arp_nh = {
 	.nh_proto = NETISR_ARP,
 	.nh_policy = NETISR_POLICY_SOURCE,
 };
+
+static const struct netisr_handler aodv_nh = {
+    .nh_name = "aodv",
+    .nh_handler = aodv_input,
+    .nh_proto = NETISR_AODV,
+    .nh_policy = NETISR_POLICY_SOURCE,
+    .nh_dispatch = NETISR_DISPATCH_DIRECT,
+};
+
 
 /*
  * Timeout routine.  Age arp_tab entries periodically.
@@ -1238,3 +1251,13 @@ struct mbuf *aodv_message(struct ifnet *ifp, u_char type, const struct in_addr *
     printf("\n%s: route request from %x to %x\n", __func__, sip->s_addr, dst->s_addr);
     return m;
 }
+
+static void aodv_input(struct mbuf *m) {
+    printf("inside the function of aodv_input triggered by aodv interrupt\n");
+    m_freem(m);
+}
+
+static void aodv_init(void) {
+    netisr_register(&aodv_nh);
+}
+SYSINIT(aodv, SI_SUB_PROTO_DOMAIN, SI_ORDER_ANY, aodv_init, 0);
