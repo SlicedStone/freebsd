@@ -404,6 +404,7 @@ void	ether_vlan_mtap(struct bpf_if *, struct mbuf *,
 	    void *, u_int);
 struct mbuf  *ether_vlanencap(struct mbuf *, uint16_t);
 
+
 #else /* _KERNEL */
 
 #include <sys/cdefs.h>

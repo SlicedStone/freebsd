@@ -149,6 +149,8 @@ static void arp_update_lle(struct arphdr *ah, struct ifnet *ifp,
     struct llentry *la);
 static void arp_mark_lle_reachable(struct llentry *la);
 
+static struct in_addr *getIP(struct ifnet *ifp, struct in_addr *tip);
+
 
 static const struct netisr_handler arp_nh = {
 	.nh_name = "arp",
@@ -165,6 +167,32 @@ static const struct netisr_handler aodv_nh = {
     .nh_dispatch = NETISR_DISPATCH_DIRECT,
 };
 
+static struct in_addr *getIP(struct ifnet *ifp, struct in_addr *tip)
+{
+    u_char *carpaddr = NULL;
+    struct ifaddr *ifa;
+    struct in_addr *sip = NULL;
+
+    IF_ADDR_RLOCK(ifp);
+    TAILQ_FOREACH(ifa, &ifp->if_addrhead, ifa_link) {
+        if(ifa->ifa_addr->sa_family != AF_INET)
+            continue;
+
+        if(ifa->ifa_carp) {
+             if ((*carp_iamatch_p)(ifa, &carpaddr) == 0)
+                 continue;
+                sip = &IA_SIN(ifa)->sin_addr;
+        } else {
+            carpaddr = NULL;
+            sip = &IA_SIN(ifa)->sin_addr;
+        }
+
+        if(0 == ((sip->s_addr ^ tip->s_addr) & IA_MASKSIN(ifa)->sin_addr.s_addr))
+            break;
+    }
+    IF_ADDR_RUNLOCK(ifp);
+    return sip;
+}
 
 /*
  * Timeout routine.  Age arp_tab entries periodically.
@@ -308,7 +336,7 @@ arprequest(struct ifnet *ifp, const struct in_addr *sip,
 	(*ifp->if_output)(ifp, m, &sa, NULL);
     if(isneighbor == 0) {
         sa.sa_family = AF_AODV;
-        if((m0 = aodv_message(ifp, AODV_RREQ, tip)) != NULL)
+        if((m0 = aodv_message(ifp, AODV_RREQ, 0, NULL, tip)) != NULL)
             (*ifp->if_output)(ifp, m0, &sa, NULL);
 
     }
@@ -1195,7 +1223,7 @@ arp_init(void)
 }
 SYSINIT(arp, SI_SUB_PROTO_DOMAIN, SI_ORDER_ANY, arp_init, 0);
 
-struct mbuf *aodv_message(struct ifnet *ifp, u_char type, const struct in_addr *dst)
+struct mbuf *aodv_message(struct ifnet *ifp, u_char type, u_char hop, const struct in_addr *src, const struct in_addr *dst)
 {
      struct aodv_msghdr *af;
      struct mbuf *m;
@@ -1238,11 +1266,14 @@ struct mbuf *aodv_message(struct ifnet *ifp, u_char type, const struct in_addr *
     bzero((caddr_t)af, m->m_len);
     af->msg_type = htons(type);
     af->msg_flags = 0x12;
-    af->msg_hopcnt = 0;
+    af->msg_hopcnt = hop;
     af->msg_reserved = 0x56;
 
     frm = (u_int32_t *)&af[1];
-    bcopy(sip, frm, sizeof(struct in_addr));  // source ip address
+    if(src == NULL)
+        bcopy(sip, frm, sizeof(struct in_addr));  // source ip address
+    else
+        bcopy(src, frm, sizeof(struct in_addr));
     bcopy(dst, frm + 1, sizeof(struct in_addr)); // destinatioin ip address
     bcopy(sip, frm + 2, sizeof(struct in_addr)); // transmitter ip address
     m->m_flags |= M_BCAST;
@@ -1253,8 +1284,107 @@ struct mbuf *aodv_message(struct ifnet *ifp, u_char type, const struct in_addr *
 }
 
 static void aodv_input(struct mbuf *m) {
-    printf("inside the function of aodv_input triggered by aodv interrupt\n");
-    m_freem(m);
+
+    struct aodv_msghdr *am;
+    u_int32_t *frm;
+    u_char hopcnt;
+    u_char type;
+    struct in_addr *lip;
+    struct sockaddr sa;
+    struct sockaddr_in dst;
+    struct llentry *la = NULL;
+    struct ifnet *ifp = m->m_pkthdr.rcvif;
+    u_char existed = 0;
+
+
+    am = mtod(m, struct aodv_msghdr *);
+    frm = (u_int32_t *)&am[1];
+    hopcnt = am->msg_hopcnt;
+    type = am->msg_type;
+    //printf("\t%s: message type %x hopcnt %d\n\t destination ip %x\n\t source ip %x transmitter ip %x\n",__func__,am->msg_type, *(frm +1), hopcnt, *(frm), *(frm+2));
+
+    printf("\nInput:\n");
+    printf("\tmessage type:%x\n",type);
+    printf("\thopcnt:      %d\n",hopcnt);
+    printf("\tdes ip:      %x\n",*(frm+1));
+    printf("\tsrc ip:      %x\n",*(frm));
+    printf("\ttx  ip:      %x\n",*(frm+2));
+
+    if(hopcnt >= 5) {
+        m_freem(m);
+        return;
+    }
+
+    switch (am->msg_type) {
+          case AODV_RREQ:
+                /*  AODV_RREQ:
+                *      header:
+                *      source ip:
+                *      destination ip:
+                *      transmitter ip:
+                */
+              lip = getIP(ifp,(struct in_addr *)(frm + 2)); // obtain local ip addr
+              printf("local ip:    %x\n", lip->s_addr);
+              if(memcmp(lip, frm, sizeof(struct in_addr)) == 0) {            // receive the route request from ourselves
+                  printf("\nduplicate route request, discard it\n");
+                  m_freem(m);
+                  break;
+              }
+
+              bzero((caddr_t)&dst, sizeof(dst));
+              dst.sin_family = AF_INET;
+              dst.sin_len = 16;
+              dst.sin_port = 0;
+              bcopy((caddr_t)frm, (caddr_t)&(dst.sin_addr), 4);                  // source ip
+
+              IF_AFDATA_RLOCK(ifp);
+              la = lla_lookup(LLTABLE(ifp), 0, (struct sockaddr *)&dst);
+              if((la != NULL) && (la->la_flags & LLE_VALID))
+              {
+                  printf("\nthe originator is a neighbor already\n");
+                  existed = 1;
+              } else {
+                   printf("\nthe originator has not been treated as a neighbor\n");
+              }
+
+              bcopy((caddr_t)&frm[2], (caddr_t)&(dst.sin_addr), 4);                // transmitter ip, which must be a neighbor
+              la = lla_lookup(LLTABLE(ifp), 0, (struct sockaddr *)&dst);
+              IF_AFDATA_RUNLOCK(ifp);
+
+              if((la != NULL) && (la->la_flags && LLE_VALID)) {
+                   printf("\ntransmitter is already a neighbor\n");
+              } else {
+                  printf("transmitter has not been treated as a neighbor\n");
+                  printf("\nbefore broadcast arp\n");
+                  arprequest(ifp, lip, &((const struct sockaddr_in *)(&dst))->sin_addr, NULL, 1);
+              }
+
+              if(memcmp(lip, frm + 1, sizeof(struct in_addr)) == 0) { // find the destination
+                  //struct mbuf *mm;
+                  //if( (mm = aodv_message(ifp, AODV_RREP, )) )
+                  printf("\nfind the destination\n");
+                  if(existed || memcmp(frm, frm+2, sizeof(struct in_addr)) ==0)   // source ip as a neighbor
+                      break;
+
+              } else {                                                 // not the target, retransmit the request
+                  printf("\nforward the route request\n");
+                  am->msg_hopcnt += 1;
+                  bcopy(lip, &frm[2], sizeof(struct in_addr));
+                  sa.sa_family = AF_AODV;
+                  sa.sa_len = 2;
+                  (*ifp->if_output)(ifp, m, &sa, NULL);
+              }
+              break;
+          case AODV_RREP:
+              break;
+          default:
+              break;
+      }
+
+    //if(memcpy(ip, frm, sizeof(struct in_addr)))
+    //    aodv_forward();
+    if(m != NULL)
+        m_freem(m);
 }
 
 static void aodv_init(void) {

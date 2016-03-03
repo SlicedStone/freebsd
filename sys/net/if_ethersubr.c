@@ -687,7 +687,7 @@ ether_input(struct ifnet *ifp, struct mbuf *m)
 	}
 }
 
-struct in_addr *getIP(struct ifnet *ifp, struct in_addr *tip)
+/*struct in_addr *getIP(struct ifnet *ifp, struct in_addr *tip)
 {
     u_char *carpaddr = NULL;
     struct ifaddr *ifa;
@@ -712,7 +712,7 @@ struct in_addr *getIP(struct ifnet *ifp, struct in_addr *tip)
     }
     IF_ADDR_RUNLOCK(ifp);
     return sip;
-}
+}*/
 /*
  * Upper layer processing for a received Ethernet packet.
  */

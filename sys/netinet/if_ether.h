@@ -134,7 +134,7 @@ void	arprequest(struct ifnet *, const struct in_addr *,
 void	arp_ifinit(struct ifnet *, struct ifaddr *);
 void	arp_ifinit2(struct ifnet *, struct ifaddr *, u_char *);
 
-struct mbuf *aodv_message(struct ifnet *ifnet, u_char type, const struct in_addr *dst);
+struct mbuf *aodv_message(struct ifnet *ifp, u_char type, u_char hop, const struct in_addr *src, const struct in_addr *dst);
 #endif
 
 #endif
